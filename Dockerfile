@@ -9,6 +9,8 @@ RUN \
   # Download
   apk add -U --no-cache autoconf autoconf-doc automake udns udns-dev curl gcc libc-dev libevent libevent-dev libtool make openssl-dev pkgconfig postgresql-client \
   python2-dev libtool git patch make
+RUN python -m ensurepip
+RUN pip install sqlparse==0.3.1
 RUN \
   curl -o  /tmp/pgbouncer-$VERSION.tar.gz -L https://pgbouncer.github.io/downloads/files/$VERSION/pgbouncer-$VERSION.tar.gz && \
   cd /tmp && \

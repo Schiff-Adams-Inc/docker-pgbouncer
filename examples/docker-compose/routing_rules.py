@@ -11,7 +11,7 @@ def is_subscription(query):
 
 def routing_rules(username, query):
     if 'hdb_catalog.event_log' in query:
-        return 'MDB'
+        return 'main'
     if is_subscription(query):
-        return 'RR'
-    return 'MDB'
+        return 'read_replica'
+    return 'main'
