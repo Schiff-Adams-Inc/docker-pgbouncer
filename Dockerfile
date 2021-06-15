@@ -7,12 +7,17 @@ RUN \
   # security
   apk add -U --no-cache --upgrade busybox && \
   # Download
-  apk add -U --no-cache autoconf autoconf-doc automake udns udns-dev curl gcc libc-dev libevent libevent-dev libtool make openssl-dev pkgconfig postgresql-client && \
+  apk add -U --no-cache autoconf autoconf-doc automake udns udns-dev curl gcc libc-dev libevent libevent-dev libtool make openssl-dev pkgconfig postgresql-client \
+  python2-dev libtool git patch make
+RUN \
   curl -o  /tmp/pgbouncer-$VERSION.tar.gz -L https://pgbouncer.github.io/downloads/files/$VERSION/pgbouncer-$VERSION.tar.gz && \
   cd /tmp && \
   # Unpack, compile
   tar xvfz /tmp/pgbouncer-$VERSION.tar.gz && \
-  cd pgbouncer-$VERSION && \
+  git clone https://github.com/awslabs/pgbouncer-rr-patch.git && \
+  cd pgbouncer-rr-patch && \
+  ./install-pgbouncer-rr-patch.sh ../pgbouncer-$VERSION && \
+  cd ../pgbouncer-$VERSION && \
   ./configure --prefix=/usr --with-udns && \
   make && \
   # Manual install
@@ -31,6 +36,7 @@ RUN \
   apk del --purge autoconf autoconf-doc automake udns-dev curl gcc libc-dev libevent-dev libtool make libressl-dev pkgconfig
 
 COPY entrypoint.sh /entrypoint.sh
+COPY routing_rules.py /etc/pgbouncer/
 USER postgres
 EXPOSE 5432
 ENTRYPOINT ["/entrypoint.sh"]

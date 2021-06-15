@@ -1,28 +1,43 @@
-version: '3'
-services:  
-
-  db:
-    image: postgres:12
+version: '3.6'
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:11
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=hbZkzny5xrvVH
-      - POSTGRES_USER=dbuser
-      - POSTGRES_DB=test
-
+      POSTGRES_PASSWORD: postgrespassword
+    command: ["postgres", "-c", "log_destination=stderr", "-c", "log_min_duration_statement=10", "-c", "random_page_cost=1.1", "-c", "log_statement=all"]
+  read_replica:
+    container_name: read_replica
+    image: postgres:11
+    volumes:
+      - rr_db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+    command: ["postgres", "-c", "log_destination=stderr", "-c", "log_min_duration_statement=10", "-c", "random_page_cost=1.1", "-c", "log_statement=all"]
   pgbouncer:
-    image: edoburu/pgbouncer
+    build:
+      context: .
+      args:
+        - VERSION=1.12.0
     environment:
-       - DB_USER=dbuser
-       - DB_PASSWORD=hbZkzny5xrvVH
-       - DB_HOST=db
-       - DB_NAME=test 
-       - POOL_MODE=transaction
-       - ADMIN_USERS=postgres,dbuser
+      - DB_USER=postgres
+      - DB_PASSWORD=postgrespassword
+      - DB_ROUTING_NAME=main
+      - DB_HOST=postgres
+      - DB_NAME=postgres
+      - READ_REPLICA_DB_ROUTING_NAME=read_replica
+      - READ_REPLICA_DB_HOST=read_replica
+      - ROUTING_RULES_PATH=/etc/pgbouncer/routing_rules.py
+      - POOL_MODE=transaction
+      - ADMIN_USERS=pgbouncer
     ports:
       - "5432:5432"
     depends_on:
-      - db
+      - postgres
+      - read_replica
 
 volumes:
-  pg_data:
+  db_data:
+  rr_db_data:
