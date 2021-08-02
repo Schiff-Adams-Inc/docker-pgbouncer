@@ -1,0 +1,83 @@
+version: '3.6'
+services:
+  pg-metadata:
+    image: postgres:11
+    volumes:
+      - ./pg_metadata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+    networks:
+      - hasuraqueryanalysis
+    ports:
+      - "5435:5432"
+
+  postgres:
+    image: postgres:11
+    restart: always
+    volumes:
+    - ./postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+    networks:
+      - hasuraqueryanalysis
+    command: ["postgres", "-c", "log_destination=stderr", "-c", "log_min_duration_statement=10", "-c", "random_page_cost=1.1", "-c", "log_statement=all"]
+
+  pgbouncer:
+    build:
+      context: .
+      dockerfile: ../../Dockerfile
+      args:
+        - VERSION=1.12.0
+    networks:
+      - hasuraqueryanalysis
+
+    environment:
+      - DB_USER=postgres
+      - DB_PASSWORD=postgrespassword
+      - DB_ROUTING_NAME=postgres
+      - DB_HOST=postgres
+      - DB_NAME=postgres
+      - READ_REPLICA_DB_ROUTING_NAME=read_replica
+      - READ_REPLICA_DB_HOST=postgres
+      - ROUTING_RULES_PATH=/etc/pgbouncer/routing_rules.py
+      - POOL_MODE=session
+      - ADMIN_USERS=pgbouncer
+    ports:
+      - "5432:5432"
+    depends_on:
+      - postgres
+
+  graphql-engine:
+    restart: always
+    image: hasura/graphql-engine:v2.0.4
+    ports:
+      - '8080:8080'
+    depends_on:
+      - 'postgres'
+      - 'pg-metadata'
+      - 'pgbouncer'
+    environment:
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: postgres://postgres:postgrespassword@pg-metadata:5432/postgres
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgrespassword@pgbouncer:5432/postgres
+      HASURA_GRAPHQL_ENABLE_CONSOLE: 'false' # set to "false" to disable console
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      HASURA_GRAPHQL_CORS_DOMAIN: '*'
+      HASURA_GRAPHQL_LIVE_QUERIES_MULTIPLEXED_REFETCH_INTERVAL: 50000
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: 'anonymous'
+      ## uncomment next line to set an admin secret
+      HASURA_GRAPHQL_ADMIN_SECRET: secretadminkey
+      HASURA_GRAPHQL_JWT_SECRET: '{
+          "type":"RS256",
+          "jwk_url": "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com",
+          "audience": "patio-dev",
+          "issuer": "https://securetoken.google.com/patio-dev"
+      }'
+      HASURA_WEBHOOK_URL: 'http://host.docker.internal:5001/patio-dev/us-central1/events-trigger'
+      ACTIONS_ENDPOINT_BASE: 'http://host.docker.internal:5001/patio-dev/us-central1'
+      FUNCTIONS_APP_SECRET: functionsappsecret
+    networks:
+      - hasuraqueryanalysis
+  
+networks:
+  hasuraqueryanalysis:
+    driver: bridge
